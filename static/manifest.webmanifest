@@ -1,0 +1,9 @@
+{
+  "name": "CivicTrack - Civic Issue Reporting",
+  "short_name": "CivicTrack",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5f8fa",
+  "theme_color": "#102a43",
+  "description": "Report and track local civic issues."
+}

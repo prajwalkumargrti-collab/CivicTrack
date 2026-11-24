@@ -1,0 +1,40 @@
+{% extends 'admin/base_admin.html' %}
+{% block title %}Officer dashboard{% endblock %}
+{% block admin_content %}
+<div class="admin-topbar"><div><div class="eyebrow eyebrow-dark">CITY OPERATIONS / INTELLIGENCE</div><h1>Good day, {{ current_user.name.split(' ')[0] }}.</h1><p>Live operational view of citizen reports and civic response.</p></div><a class="btn btn-primary" href="{{ url_for('admin_complaints') }}">Open complaint queue →</a></div>
+<div class="kpi-grid">
+ <div class="kpi-card"><div class="kpi-icon kpi-blue">▤</div><small>Total reports</small><strong>{{ stats.total }}</strong><span>All submitted complaints</span></div>
+ <div class="kpi-card"><div class="kpi-icon kpi-orange">◷</div><small>Open issues</small><strong>{{ stats.active }}</strong><span>Awaiting closure</span></div>
+ <div class="kpi-card"><div class="kpi-icon kpi-green">✓</div><small>Resolved</small><strong>{{ stats.resolved }}</strong><span>{{ stats.resolution_rate }}% resolution rate</span></div>
+ <div class="kpi-card"><div class="kpi-icon kpi-red">!</div><small>High priority</small><strong>{{ stats.critical }}</strong><span>High / critical, not resolved</span></div>
+</div>
+<div class="phase2-grid">
+ <section class="dash-card"><div class="dash-card-head"><div><h2>Complaint trend</h2><p>New reports received over the last 14 days.</p></div><span class="chart-tag">14 DAYS</span></div><div class="chart-wrap"><canvas id="trend-chart"></canvas></div></section>
+ <section class="dash-card"><div class="dash-card-head"><div><h2>Resolution performance</h2><p>Average time from report submission to recorded resolution.</p></div></div><div class="resolution-metric">{% if stats.avg_resolution_hours is not none %}<strong>{{ stats.avg_resolution_hours }}</strong><span>hours average</span>{% else %}<strong>—</strong><span>No resolved reports yet</span>{% endif %}</div><p class="metric-footnote">Calculated from resolution history where available; older records without a resolution event use their last update timestamp.</p></section>
+</div>
+<div class="dashboard-grid">
+ <section class="dash-card chart-card"><div class="dash-card-head"><div><h2>Reports by category</h2><p>Understand what residents are reporting.</p></div><span class="chart-tag">ALL TIME</span></div><div class="chart-wrap"><canvas id="category-chart"></canvas></div></section>
+ <section class="dash-card chart-card"><div class="dash-card-head"><div><h2>Resolution pipeline</h2><p>Current complaint status distribution.</p></div><span class="chart-tag">ALL TIME</span></div><div class="chart-wrap chart-wrap-small"><canvas id="status-chart"></canvas></div></section>
+</div>
+<div class="phase2-grid">
+ <section class="dash-card"><div class="dash-card-head"><div><h2>Ward-wise performance</h2><p>Complaint load and closure status by ward/area.</p></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Ward / Area</th><th>Total</th><th>Open</th><th>Resolved</th></tr></thead><tbody>{% for w in stats.wards %}<tr><td><b>{{ w.name }}</b></td><td>{{ w.total }}</td><td>{{ w.open }}</td><td>{{ w.resolved }}</td></tr>{% else %}<tr><td colspan="4" class="empty-cell">No ward data available yet.</td></tr>{% endfor %}</tbody></table></div></section>
+ <section class="dash-card"><div class="dash-card-head"><div><h2>Open complaint ageing</h2><p>How long unresolved reports have been waiting.</p></div></div><div class="age-list">{% for a in stats.ageing %}<div class="age-row"><span>{{ a.label }}</span><strong>{{ a.count }}</strong></div>{% endfor %}</div><p class="metric-footnote">Age is calculated from the complaint submission date. Resolved and rejected reports are excluded.</p></section>
+</div>
+<section class="dash-card map-dash-card"><div class="dash-card-head"><div><h2>Geographic issue overview</h2><p>Reports with coordinates appear on this map.</p></div><a class="text-link" href="{{ url_for('admin_complaints') }}">View all reports →</a></div><div id="admin-map" class="admin-map" data-map-items='{{ stats.map_items|tojson }}'></div></section>
+<section class="dash-card recent-card"><div class="dash-card-head"><div><h2>Latest reports</h2><p>Most recently submitted citizen complaints.</p></div><a class="text-link" href="{{ url_for('admin_complaints') }}">View complaint queue →</a></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Tracking ID</th><th>Issue</th><th>Location</th><th>Priority</th><th>Status</th><th>Received</th></tr></thead><tbody>{% for c in stats.recent %}<tr><td><b>{{ c.tracking_code }}</b></td><td>{{ c.category }}</td><td>{{ c.address }}</td><td><span class="priority-pill priority-{{ c.priority_label|lower }}">{{ c.priority_label }}</span></td><td><span class="status-pill status-{{ c.status|lower|replace(' ','-') }}">{{ c.status }}</span></td><td>{{ c.created_at.strftime('%d %b, %I:%M %p') }}</td></tr>{% else %}<tr><td colspan="6" class="empty-cell">No reports yet. Submit a test complaint from the citizen portal.</td></tr>{% endfor %}</tbody></table></div></section>
+<div class="admin-footnote">Dashboard figures are calculated from this CivicTrack database. Priority is an explainable prototype score, not an official emergency classification or automatic dispatch decision.</div>
+</div>
+<style>
+.phase2-grid{display:grid;grid-template-columns:1.4fr 1fr;gap:18px;margin:20px 0}.resolution-metric{display:flex;align-items:baseline;gap:10px;padding:22px 4px 8px}.resolution-metric strong{font-size:42px;letter-spacing:-2px}.resolution-metric span{color:var(--muted,#667085);font-weight:600}.metric-footnote{font-size:12px;color:var(--muted,#667085);line-height:1.55;margin-top:14px}.age-list{display:grid;gap:0}.age-row{display:flex;justify-content:space-between;align-items:center;padding:14px 4px;border-bottom:1px solid #edf0f3}.age-row:last-child{border-bottom:0}.age-row strong{font-size:20px}.phase2-grid .dash-card{min-width:0}@media(max-width:850px){.phase2-grid{grid-template-columns:1fr}}
+</style>
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>window.CIVICTRACK_CHARTS={categories:{{ chart_categories|tojson }},statuses:{{ chart_statuses|tojson }},trend:{{ stats.trend|tojson }}};</script>
+<script>
+(()=>{const d=window.CIVICTRACK_CHARTS||{};if(!window.Chart)return;const common={responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}};
+const cat=document.getElementById('category-chart');if(cat)new Chart(cat,{type:'bar',data:{labels:d.categories.labels,datasets:[{label:'Reports',data:d.categories.values,borderRadius:6}]},options:{...common,scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});
+const st=document.getElementById('status-chart');if(st)new Chart(st,{type:'doughnut',data:{labels:d.statuses.labels,datasets:[{data:d.statuses.values,borderWidth:2}]},options:common});
+const tr=document.getElementById('trend-chart');if(tr)new Chart(tr,{type:'line',data:{labels:d.trend.labels,datasets:[{label:'New reports',data:d.trend.values,tension:.32,fill:true}]},options:{...common,scales:{y:{beginAtZero:true,ticks:{precision:0}}}}});})();
+</script>
+{% endblock %}
